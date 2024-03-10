@@ -12,17 +12,17 @@ const logger = createLogger({
     transports: [new transports.Console()]
 });
 
+const headersAndCookies={
+    ...HEADERS,
+    Cookie: Object.keys(COOKIES).map(key => `${key}=${COOKIES[key]}`).join("; ")
+}
 
 class Skipera {
     constructor(course) {
         this.base_url = BASE_URL;
         
         this.session = axios.create({
-            headers: {
-                 ...Headers,
-                 Cookie: Object.keys(COOKIES).map(key => `${key}=${COOKIES[key]}`).join("; "),
-            
-            },
+            headers:headersAndCookies,
             withCredentials: true
         });
         this.course = course;
@@ -98,68 +98,35 @@ class Skipera {
         }
 
     async watch_item(item_id) {
-    try {
-        const response = await this.session.post(this.base_url + `opencourse.v1/user/${this.user_id}/course/${this.course}/item/${item_id}/lecture/videoEvents/ended?autoEnroll=false`,{
-            "contentRequestBody": {}
-        });
-    } catch (error) {
-            logger.info("Not a watch item! Reading..");
-            this.read_item_with_new_req(item_id);
-        }
-    }
-
-   async read_item(item_id) {
         try {
-            const raw = "{\"userId\":146239292,\"courseId\":\"gbVoaCPgEe6IABIijrVckw\",\"itemId\":\"YKF8Q\"}";
-            const headers1 = {
-                ...HEADERS,
-                Cookie: Object.keys(COOKIES).map(key => `${key}=${COOKIES[key]}`).join("; ")
-            };
-            console.log(headers1);
-
-            
-
-        } catch (error) {
-            logger.error("Item is a survey! Please complete it manually!");
-            logger.error("Or some error occured!")
-        }
-}
-        
-        /* not the ideal way of doing the it
-        need the update it *
-        try do the same thing with this.session.post */
-
-    async read_item_with_new_req(item_id){
-        // console.log(item_id,this.user_id,this.course_id);
-        const data = `{\"userId\":${this.user_id},\"courseId\":\"${this.course_id}\",\"itemId\":\"${item_id}\"}`;
-        // format of "data" var is not typical json , it is some weird type . so usig this particular synatax for data var  
-        let headers1= {
-            ...HEADERS,
-            Cookie: Object.keys(COOKIES).map(key => `${key}=${COOKIES[key]}`).join("; ")
-          };
-        // if you can create var for header ins the the topmost part , you can remove this line 
-        
-          let config = {
-            method: 'post',
-            maxBodyLength: Infinity,
-            url: 'https://www.coursera.org/api/onDemandSupplementCompletions.v1',
-            headers: headers1,
-            data: data
-          };
-          
-          axios.request(config)
-            .then((response) => {
-            if (!response.data || !response.data.includes || !response.data.includes("Completed")) {
-                logger.error("Item is a survey! Please complete it manually!");
-            } 
-            })
-            .catch((error) => {
-            // do nothing 
-            // console.log(error);
-            // comment the error if you want
+            const response = await this.session.post(this.base_url + `opencourse.v1/user/${this.user_id}/course/${this.course}/item/${item_id}/lecture/videoEvents/ended?autoEnroll=false`,{
+                "contentRequestBody": {}
             });
-        }
+        } catch (error) {
+                logger.info("Not a watch item! Reading..");
+                this.read_item_with_new_req(item_id);
+            }
     }
+    async read_item_with_new_req(item_id){
+        const jsonDataObject = `{\"userId\":${this.user_id},\"courseId\":\"${this.course_id}\",\"itemId\":\"${item_id}\"}`
+
+        const config = {
+            method: 'post',
+            url: `${this.base_url}/onDemandSupplementCompletions.v1`,
+            headers: headersAndCookies,
+            data: jsonDataObject
+        };
+        
+        axios.request(config)
+            .then((response) => {
+                if (!response.data || !response.data.includes || !response.data.includes("Completed")) {
+                    logger.error("Item is a survey! Please complete it manually!");
+                } 
+            }).catch((error) => {
+                logger.error("Some error occured while reading.",error.message)
+            });
+    }
+}
     program
         .arguments('<course>')
         .action(async (course) => {
